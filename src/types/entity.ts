@@ -1,3 +1,3 @@
-export interface Entity {
+export interface DEntity {
   [key: string]: unknown;
 }

@@ -1,15 +1,15 @@
-export interface Header {
-  ident: string;
+export interface DHeader {
+  ident: number;
   version: number;
-  lumps: LumpInfo[];
+  lumps: DLump[];
   mapRevision: number;
 }
 
-export interface LumpInfo {
-  type: LumpType;
-  offset: number;
-  length: number;
+export interface DLump {
+  fileofs: number;
+  filelen: number;
   version: number;
+  type: LumpType;
 }
 
 export enum LumpType {
