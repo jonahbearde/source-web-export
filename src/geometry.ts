@@ -1,6 +1,7 @@
 import type { DLump } from "./types/bsp";
+import fs from "node:fs/promises";
 
-export function readGeometry(
+export async function readGeometry(
   bspArray: Uint8Array,
   planesInfo: DLump,
   facesInfo: DLump,
@@ -13,10 +14,66 @@ export function readGeometry(
   const surfEdges = readSurfEdges(bspArray, surfEdgesInfo);
   const edges = readEdges(bspArray, edgesInfo);
   const vertices = readVertices(bspArray, verticesInfo);
+
+  const lightmappedFaces = faces.filter((face) => face.lightofs !== -1);
+
+  const verticesExp: Vertex[] = [];
+
+  for (let lightmappedFace of lightmappedFaces) {
+    const edgesNum = lightmappedFace.numedges;
+    const firstIndex = lightmappedFace.firstedge;
+    const serfEdges = surfEdges.slice(firstIndex, firstIndex + edgesNum);
+
+    const faceVertices = serfEdges
+      .map((surfEdge) => {
+        const edge = edges[Math.abs(surfEdge)];
+        const vertexIndex = edge.v[surfEdge < 0 ? 1 : 0];
+        return vertices[vertexIndex];
+      })
+      // anti-closewise
+      .reverse();
+
+    const triangleVertices: Vector[] = [];
+    if (faceVertices.length > 3) {
+      // triangulating faces
+      for (let i = 1; i < faceVertices.length - 1; i++) {
+        triangleVertices.push(faceVertices[0]);
+        triangleVertices.push(faceVertices[i]);
+        triangleVertices.push(faceVertices[i + 1]);
+      }
+    }
+
+    // console.log("trangulated", triangleVertices)
+
+    const norm = planes[lightmappedFace.planenum].normal;
+
+    let verts: Vector[];
+
+    if (triangleVertices.length > 0) {
+      verts = triangleVertices;
+    } else {
+      verts = faceVertices;
+    }
+
+    for (let faceVertex of verts) {
+      verticesExp.push({
+        position: [faceVertex.x, faceVertex.y, faceVertex.z],
+        norm: [norm.x, norm.y, norm.z],
+        uv: [0, 0],
+      });
+    }
+  }
+
+  // console.log(verticesExp)
+
+  await fs.writeFile(
+    "D:/cs2kz/source-maps-viewer/src/json/vertices.json",
+    JSON.stringify(verticesExp),
+  );
 }
 
 export function readPlanes(bspArray: Uint8Array, planesInfo: DLump) {
-  const planes = [];
+  const planes: DPlane[] = [];
   const planesView = new DataView(
     bspArray.buffer,
     planesInfo.fileofs,
@@ -42,7 +99,7 @@ export function readPlanes(bspArray: Uint8Array, planesInfo: DLump) {
 }
 
 export function readFaces(bspArray: Uint8Array, facesInfo: DLump) {
-  const faces = [];
+  const faces: DFace[] = [];
   const facesView = new DataView(
     bspArray.buffer,
     facesInfo.fileofs,
@@ -85,13 +142,13 @@ export function readFaces(bspArray: Uint8Array, facesInfo: DLump) {
     faces.push(face);
   }
 
-  // console.log(faces.length)
+  // console.log(faces)
 
   return faces;
 }
 
 export function readSurfEdges(bspArray: Uint8Array, surfEdgesInfo: DLump) {
-  const surfEdges = [];
+  const surfEdges: DSurfEdge[] = [];
   const surfEdgesView = new DataView(
     bspArray.buffer,
     surfEdgesInfo.fileofs,
@@ -109,7 +166,7 @@ export function readSurfEdges(bspArray: Uint8Array, surfEdgesInfo: DLump) {
 }
 
 export function readEdges(bspArray: Uint8Array, edgesInfo: DLump) {
-  const edges = [];
+  const edges: DEdge[] = [];
   const edgesView = new DataView(
     bspArray.buffer,
     edgesInfo.fileofs,
@@ -118,10 +175,10 @@ export function readEdges(bspArray: Uint8Array, edgesInfo: DLump) {
 
   for (let i = 0; i < edgesInfo.filelen / 4; i++) {
     const offset = i * 4;
-    const v = [];
+    const v: number[] = [];
     v.push(edgesView.getUint16(offset, true));
     v.push(edgesView.getUint16(offset + 2, true));
-    edges.push(v);
+    edges.push({ v });
   }
 
   // console.log(edges);
@@ -130,7 +187,7 @@ export function readEdges(bspArray: Uint8Array, edgesInfo: DLump) {
 }
 
 export function readVertices(bspArray: Uint8Array, verticesInfo: DLump) {
-  const vertices = [];
+  const vertices: Vector[] = [];
   const verticesView = new DataView(
     bspArray.buffer,
     verticesInfo.fileofs,
@@ -139,7 +196,7 @@ export function readVertices(bspArray: Uint8Array, verticesInfo: DLump) {
 
   for (let i = 0; i < verticesInfo.filelen / 12; i++) {
     const offset = i * 12;
-    const vertex = {
+    const vertex: Vector = {
       x: verticesView.getFloat32(offset, true),
       y: verticesView.getFloat32(offset + 4, true),
       z: verticesView.getFloat32(offset + 8, true),
@@ -148,4 +205,6 @@ export function readVertices(bspArray: Uint8Array, verticesInfo: DLump) {
   }
 
   // console.log(vertices);
+
+  return vertices;
 }

@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 import type { DHeader, DLump } from "./types/bsp";
 import { LumpType } from "./types/bsp";
 import { readEntities } from "./entity";
-import { readGeometry } from "./geom";
+import { readGeometry } from "./geometry";
 
 export async function readBsp(bspPath: string) {
   try {

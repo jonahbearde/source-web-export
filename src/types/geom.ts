@@ -35,3 +35,9 @@ interface DPlane {
   dist: number;
   type: number; // plane axis identifier
 }
+
+interface Vertex {
+  position: [number, number, number];
+  norm: [number, number, number];
+  uv: [number, number];
+}
